@@ -383,8 +383,6 @@ ip_opt_convert(int optname)
 {
     switch(optname) {
         case LINUX_IP_TOS:
-            *(char*)modoptval = *(int *)optval;
-            *modoptlen = CMSG_LEN(sizeof(char));
             return IP_TOS;
         case LINUX_IP_TTL:
             return IP_TTL;
@@ -545,7 +543,7 @@ linux2freebsd_cmsg(const struct msghdr *msg, struct cmsghdr **cmsg)
         void *modoptval = CMSG_DATA(cmsg_bsd);
         socklen_t modoptlen = cmsg_bsd->cmsg_len;
         memcpy(((char *)cmsg_bsd)+sizeof(struct cmsghdr), ((char *)linux_cmsg)+sizeof(struct linux_cmsghdr), linux_cmsg->cmsg_len - sizeof(struct linux_cmsghdr));
-        cmsg_bsd->cmsg_type = linux2freebsd_opt(cmsg_bsd->cmsg_level, cmsg_bsd->cmsg_type, CMSG_DATA(cmsg_bsd), cmsg_bsd->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr)), &modoptval, &modoptlen);
+        cmsg_bsd->cmsg_type = linux2freebsd_opt(cmsg_bsd->cmsg_level, cmsg_bsd->cmsg_type);
         if (cmsg_bsd->cmsg_type < 0) {
             free(cmsg,NULL);
             return -1;        
