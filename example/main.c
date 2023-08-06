@@ -9,9 +9,11 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/ioctl.h>
+#include <rte_mbuf.h>
 
 #include "ff_config.h"
 #include "ff_api.h"
+
 
 #define MAX_EVENTS 512
 
@@ -104,9 +106,21 @@ int loop(void *arg)
                 available--;
             } while (available);
         } else if (event.filter == EVFILT_READ) {
-            char buf[256];
-            ssize_t readlen = ff_read(clientfd, buf, sizeof(buf));
-            ssize_t writelen = ff_write(clientfd, html, sizeof(html) - 1);
+            void *mb;
+            ssize_t readlen = ff_read(clientfd, &mb, 4096);
+
+            struct rte_mbuf *rte_mb = ff_rte_frm_extcl(mb);
+            ff_mbuf_detach_rte(mb);
+            ff_mbuf_free(mb);
+
+            rte_pktmbuf_reset(rte_mb);
+            char *data = rte_pktmbuf_mtod(rte_mb, char *);
+            memcpy(data, html, sizeof(html) - 1);
+            rte_mb->data_len = sizeof(html) - 1;
+            rte_mb->pkt_len = rte_mb->data_len;
+
+            mb = ff_mbuf_get(NULL, rte_mb, data, rte_mb->data_len);
+            ssize_t writelen = ff_write(clientfd, mb, rte_mb->data_len);
             if (writelen < 0){
                 printf("ff_write failed:%d, %s\n", errno,
                     strerror(errno));

@@ -649,10 +649,9 @@ init_port_start(void)
                         port_conf.rx_adv_conf.rss_conf.rss_hf);
             }
 
-            if (dev_info.tx_offload_capa & DEV_TX_OFFLOAD_MBUF_FAST_FREE) {
-                port_conf.txmode.offloads |=
-                    DEV_TX_OFFLOAD_MBUF_FAST_FREE;
-            }
+            /* We do not support fast free since mbufs have multiple references
+             * in tx
+             */
 
             /* Set Rx VLAN stripping */
             if (ff_global_cfg.dpdk.vlan_strip) {
@@ -1840,47 +1839,83 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
     return 0;
 #endif
     struct rte_mempool *mbuf_pool = pktmbuf_pool[lcore_conf.socket_id];
-    struct rte_mbuf *head = rte_pktmbuf_alloc(mbuf_pool);
-    if (head == NULL) {
-        ff_mbuf_free(m);
-        return -1;
+    struct rte_mbuf *head = NULL;
+    void *p_bsdbuf = m;
+    void *dt = NULL;
+    unsigned  ln = 0;
+    struct rte_mbuf *rte_mbuf_frm_bsd = NULL;
+    void *prepend_data = NULL;
+    char *rte_prepend_data = NULL;
+    uint16_t prepend_len = 0;
+    uint16_t headroomavail = 0;
+
+    /* Get the next mbuf in the chain which contains the http data */
+    int ret = ff_next_mbuf(&p_bsdbuf, &dt, &ln);
+    if (ret == 0 && p_bsdbuf != NULL){
+        prepend_len = ln;
+        rte_mbuf_frm_bsd = ff_rte_frm_extcl(p_bsdbuf);
+    }
+    if (rte_mbuf_frm_bsd != NULL){
+       headroomavail = rte_pktmbuf_headroom(rte_mbuf_frm_bsd);
     }
 
-    head->pkt_len = total;
-    head->nb_segs = 0;
-
-    int off = 0;
-    struct rte_mbuf *cur = head, *prev = NULL;
-    while(total > 0) {
-        if (cur == NULL) {
-            cur = rte_pktmbuf_alloc(mbuf_pool);
-            if (cur == NULL) {
-                rte_pktmbuf_free(head);
-                ff_mbuf_free(m);
-                return -1;
-            }
+    /*If all conditions meet it is a resused rte_mbuf */
+    if ((p_bsdbuf != NULL) && (rte_mbuf_frm_bsd != NULL) && (headroomavail >= prepend_len) && (rte_mbuf_frm_bsd->pkt_len !=0) && (rte_mbuf_frm_bsd->data_len !=0)){
+        head = rte_mbuf_frm_bsd;
+        prepend_data = ff_mbuf_mtod(m);
+        rte_prepend_data = rte_pktmbuf_prepend(rte_mbuf_frm_bsd, prepend_len);
+        if (rte_prepend_data == NULL){
+            printf("rte_pktmbuf_prepend failed\n");
         }
+        bcopy(prepend_data, rte_prepend_data, prepend_len);
+        /* Increase the ref-count of the rte_mbuf*/
+        rte_mbuf_refcnt_set(head, 2);
 
-        if (prev != NULL) {
-            prev->next = cur;
-        }
-        head->nb_segs++;
-
-        prev = cur;
-        void *data = rte_pktmbuf_mtod(cur, void*);
-        int len = total > RTE_MBUF_DEFAULT_DATAROOM ? RTE_MBUF_DEFAULT_DATAROOM : total;
-        int ret = ff_mbuf_copydata(m, data, off, len);
-        if (ret < 0) {
-            rte_pktmbuf_free(head);
+    /* normal packet processing for packets other than data packets */
+    }else {
+        head = rte_pktmbuf_alloc(mbuf_pool);
+        if (head == NULL) {
             ff_mbuf_free(m);
             return -1;
         }
 
+        head->pkt_len = total;
+        head->nb_segs = 0;
 
-        cur->data_len = len;
-        off += len;
-        total -= len;
-        cur = NULL;
+        int off = 0;
+        struct rte_mbuf *cur = head, *prev = NULL;
+
+        while(total > 0) {
+            if (cur == NULL) {
+                cur = rte_pktmbuf_alloc(mbuf_pool);
+                if (cur == NULL) {
+                    rte_pktmbuf_free(head);
+                    ff_mbuf_free(m);
+                    return -1;
+                }
+            }
+
+            if (prev != NULL) {
+                prev->next = cur;
+            }
+            head->nb_segs++;
+
+            prev = cur;
+            void *data = rte_pktmbuf_mtod(cur, void*);
+            // printf("in ff_dpdk_send data = %p\n", data);
+            int len = total > RTE_MBUF_DEFAULT_DATAROOM ? RTE_MBUF_DEFAULT_DATAROOM : total;
+            int ret = ff_mbuf_copydata(m, data, off, len);
+            if (ret < 0) {
+                rte_pktmbuf_free(head);
+                ff_mbuf_free(m);
+                return -1;
+            }
+
+            cur->data_len = len;
+            off += len;
+            total -= len;
+            cur = NULL;
+        }
     }
 
     struct ff_tx_offload offload = {0};

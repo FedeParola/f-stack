@@ -39,6 +39,7 @@ void ff_mbuf_free(void *m);
 int ff_mbuf_copydata(void *m, void *data, int off, int len);
 int ff_next_mbuf(void **mbuf_bsd, void **data, unsigned *len);
 void* ff_mbuf_mtod(void* bsd_mbuf);
+void ff_mbuf_detach_rte(void* bsd_mbuf);
 void* ff_rte_frm_extcl(void* mbuf);
 
 struct ff_tx_offload;

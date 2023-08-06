@@ -1064,7 +1064,8 @@ send:
 		 * to the offset in the socket buffer chain.
 		 */
 		mb = sbsndptr_noadv(&so->so_snd, off, &moff);
-		if (len <= MHLEN - hdrlen - max_linkhdr && !hw_tls) {
+		if (len <= MHLEN - hdrlen - max_linkhdr && !hw_tls &&
+		    !mb->m_ext.ext_arg1) {
 			m_copydata(mb, moff, len,
 			    mtod(m, caddr_t) + hdrlen);
 			if (SEQ_LT(tp->snd_nxt, tp->snd_max))

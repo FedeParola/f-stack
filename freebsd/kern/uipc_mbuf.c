@@ -226,9 +226,11 @@ mb_dupcl(struct mbuf *n, struct mbuf *m)
 		bcopy(&m->m_ext, &n->m_ext, m_epg_ext_copylen);
 	} else if (m->m_ext.ext_type == EXT_EXTREF)
 		bcopy(&m->m_ext, &n->m_ext, sizeof(struct m_ext));
-	else
+	else {
 		bcopy(&m->m_ext, &n->m_ext, m_ext_copylen);
-
+		n->m_ext.ext_free = m->m_ext.ext_free;  // copy ext_free
+		n->m_ext.ext_arg1 = m->m_ext.ext_arg1;  // copy ext_arg1
+	}
 	n->m_flags |= m->m_flags & (M_RDONLY | M_EXT | M_EXTPG);
 
 	/* See if this is the mbuf that holds the embedded refcount. */

@@ -235,6 +235,27 @@ ff_mbuf_free(void *m)
     m_freem((struct mbuf *)m);
 }
 
+void
+ff_mbuf_detach_rte(void* bsd_mbuf)
+{
+    if ( !bsd_mbuf )
+        return;
+
+    struct mbuf *mb = (struct mbuf *)bsd_mbuf;
+    if (mb->m_flags & M_EXT) {
+        mb->m_flags &= ~M_EXT;
+        mb->m_ext.ext_buf = NULL;
+        mb->m_data = mb->m_ext.ext_buf;
+        mb->m_ext.ext_size = 0;
+        mb->m_ext.ext_free = NULL;
+        mb->m_ext.ext_arg1 = NULL;
+        mb->m_ext.ext_arg2 = NULL;
+        mb->m_ext.ext_type = 0;
+        mb->m_ext.ext_count = 0;
+        mb->m_ext.ext_flags = 0;
+    }
+}
+
 static void
 ff_mbuf_ext_free(struct mbuf *m)
 {

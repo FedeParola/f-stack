@@ -133,7 +133,7 @@ soo_read(struct file *fp, struct uio *uio, struct ucred *active_cred,
 	if (error)
 		return (error);
 #endif
-	error = soreceive(so, 0, uio, 0, 0, 0);
+	error = soreceive(so, 0, uio, uio->uio_iov->iov_base, 0, 0);
 	return (error);
 }
 
@@ -149,7 +149,7 @@ soo_write(struct file *fp, struct uio *uio, struct ucred *active_cred,
 	if (error)
 		return (error);
 #endif
-	error = sosend(so, 0, uio, 0, 0, 0, uio->uio_td);
+	error = sosend(so, 0, 0, uio->uio_iov->iov_base, 0, 0, uio->uio_td);
 	if (error == EPIPE && (so->so_options & SO_NOSIGPIPE) == 0) {
 		PROC_LOCK(uio->uio_td->td_proc);
 		tdsignal(uio->uio_td, SIGPIPE);
