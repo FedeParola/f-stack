@@ -10,6 +10,7 @@ drivers = [
         'octeontx2',
         'ring',
         'stack',
+        'unimsg',
 ]
 
 std_deps = ['mempool']

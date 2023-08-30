@@ -49,7 +49,7 @@
 #define RTE_MEMPOOL_CACHE_MAX_SIZE 512
 
 /* mbuf defines */
-#define RTE_MBUF_DEFAULT_MEMPOOL_OPS "ring_mp_mc"
+#define RTE_MBUF_DEFAULT_MEMPOOL_OPS "unimsg"
 #define RTE_PKTMBUF_HEADROOM 128
 
 /* ether defines */

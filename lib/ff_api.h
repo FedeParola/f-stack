@@ -51,7 +51,8 @@ struct linux_sockaddr {
 
 typedef int (*loop_func_t)(void *arg);
 
-int ff_init(int argc, char * const argv[]);
+int ff_init(int argc, char **argv, void *buffers, unsigned count,
+            unsigned size);
 
 void ff_run(loop_func_t loop, void *arg);
 

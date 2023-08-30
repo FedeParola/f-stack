@@ -303,7 +303,7 @@ init_lcore_conf(void)
 }
 
 static int
-init_mem_pool(void)
+init_mem_pool(void *buffers, unsigned count, unsigned size)
 {
     uint8_t nb_ports = ff_global_cfg.dpdk.nb_ports;
     uint32_t nb_lcores = ff_global_cfg.dpdk.nb_procs;
@@ -344,10 +344,30 @@ init_mem_pool(void)
 
         if (rte_eal_process_type() == RTE_PROC_PRIMARY) {
             snprintf(s, sizeof(s), "mbuf_pool_%d", socketid);
+
+             /* TODO: I'm assuming all buffers memory is physically contiguous
+              * for now, what if it's not?
+              */
+            struct rte_pktmbuf_extmem ext_mem;
+            ext_mem.buf_ptr = buffers;
+            ext_mem.buf_iova = rte_mem_virt2iova(ext_mem.buf_ptr);
+            ext_mem.buf_len = size * count;
+            ext_mem.elt_size = size;
+
+            printf("Wanted to use %u mbufs, instead will use %u\n", nb_mbuf,
+                   count);
+
             pktmbuf_pool[socketid] =
-                rte_pktmbuf_pool_create(s, nb_mbuf,
-                    MEMPOOL_CACHE_SIZE, 0,
-                    RTE_MBUF_DEFAULT_BUF_SIZE, socketid);
+                rte_pktmbuf_pool_create_extbuf(s, count, MEMPOOL_CACHE_SIZE, 0,
+                                               RTE_MBUF_DEFAULT_BUF_SIZE,
+                                               socketid, &ext_mem, 1);
+
+            if (pktmbuf_pool[socketid]->nb_mem_chunks > 1) {
+                rte_exit(EXIT_FAILURE, "Unimsg mempool must have 1 memory chunk"
+                         " but %u were allocated",
+                         pktmbuf_pool[socketid]->nb_mem_chunks);
+            }
+
         } else {
             snprintf(s, sizeof(s), "mbuf_pool_%d", socketid);
             pktmbuf_pool[socketid] = rte_mempool_lookup(s);
@@ -1156,7 +1176,8 @@ fdir_add_tcp_flow(uint16_t port_id, uint16_t queue, uint16_t dir,
 #endif
 
 int
-ff_dpdk_init(int argc, char **argv)
+ff_dpdk_init(int argc, char **argv, void *buffers, unsigned count,
+             unsigned size)
 {
     if (ff_global_cfg.dpdk.nb_procs < 1 ||
         ff_global_cfg.dpdk.nb_procs > RTE_MAX_LCORE ||
@@ -1181,7 +1202,7 @@ ff_dpdk_init(int argc, char **argv)
 
     init_lcore_conf();
 
-    init_mem_pool();
+    init_mem_pool(buffers, count, size);
 
     init_dispatch_ring();
 

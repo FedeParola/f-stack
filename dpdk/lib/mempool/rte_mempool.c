@@ -359,6 +359,9 @@ rte_mempool_populate_iova(struct rte_mempool *mp, char *vaddr,
 		goto fail;
 	}
 
+	STAILQ_INSERT_TAIL(&mp->mem_list, memhdr, next);
+	mp->nb_mem_chunks++;
+
 	i = rte_mempool_ops_populate(mp, mp->size - mp->populated_size,
 		(char *)vaddr + off,
 		(iova == RTE_BAD_IOVA) ? RTE_BAD_IOVA : (iova + off),
@@ -369,9 +372,6 @@ rte_mempool_populate_iova(struct rte_mempool *mp, char *vaddr,
 		ret = 0;
 		goto fail;
 	}
-
-	STAILQ_INSERT_TAIL(&mp->mem_list, memhdr, next);
-	mp->nb_mem_chunks++;
 
 	/* Check if at least some objects in the pool are now usable for IO. */
 	if (!(mp->flags & RTE_MEMPOOL_F_NO_IOVA_CONTIG) && iova != RTE_BAD_IOVA)
