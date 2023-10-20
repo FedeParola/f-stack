@@ -801,7 +801,7 @@ kern_sendit(struct thread *td, int s, struct msghdr *mp, int flags,
 		ktruio = cloneuio(&auio);
 #endif
 	len = auio.uio_resid;
-	error = sosend(so, mp->msg_name, &auio, 0, control, flags, td);
+	error = sosend(so, mp->msg_name, 0, auio.uio_iov->iov_base, control, flags, td);
 	if (error != 0) {
 		if (auio.uio_resid != len && (error == ERESTART ||
 		    error == EINTR || error == EWOULDBLOCK))
@@ -964,7 +964,8 @@ kern_recvit(struct thread *td, int s, struct msghdr *mp, enum uio_seg fromseg,
 #endif
 	control = NULL;
 	len = auio.uio_resid;
-	error = soreceive(so, &fromsa, &auio, NULL,
+	/* Anvaya: changed to accept pointer */
+	error = soreceive(so, &fromsa, &auio, auio.uio_iov->iov_base,
 	    (mp->msg_control || controlp) ? &control : NULL,
 	    &mp->msg_flags);
 	if (error != 0) {

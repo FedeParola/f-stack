@@ -13,6 +13,7 @@
 
 #include "ff_config.h"
 #include "ff_api.h"
+#include "ff_veth.h"
 
 #define MAX_EVENTS 512
 
@@ -27,20 +28,14 @@ int sockfd;
 int sockfd6;
 #endif
 
-static unsigned opt_bodysize = 0;
-static unsigned hdr_size;
-
-char html_template[] =
-"HTTP/1.1 200 OK\r\n"
-"Server: F-Stack\r\n"
-"Date: Sat, 5 Feb 2017 09:26:33 GMT\r\n"
-"Content-Type: text/html\r\n"
-"Content-Length: %lu\r\n"
-"Connection: keep-alive\r\n"
-"\r\n";
-
-char html_hdr[sizeof(html_template) + 10];
-
+char *udp_message = "Hello, f-stack UDP server";
+void printf_msg(char *input, ssize_t readlen){
+    printf("Printing message: \n");
+    for(int i = 0 ; i < readlen; i++){
+        printf("%02x ", (unsigned char)input[i]);
+    }
+    printf("\n");
+}
 int loop(void *arg)
 {
     /* Wait for events to happen */
@@ -57,38 +52,11 @@ int loop(void *arg)
         struct kevent event = events[i];
         int clientfd = (int)event.ident;
 
-        /* Handle disconnect */
-        if (event.flags & EV_EOF) {
-            /* Simply close socket */
-            ff_close(clientfd);
-#ifdef INET6
-        } else if (clientfd == sockfd || clientfd == sockfd6) {
-#else
-        } else if (clientfd == sockfd) {
-#endif
-            int available = (int)event.data;
-            do {
-                int nclientfd = ff_accept(clientfd, NULL, NULL);
-                if (nclientfd < 0) {
-                    printf("ff_accept failed:%d, %s\n", errno,
-                        strerror(errno));
-                    break;
-                }
-
-                /* Add to event list */
-                EV_SET(&kevSet, nclientfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
-
-                if(ff_kevent(kq, &kevSet, 1, NULL, 0, NULL) < 0) {
-                    printf("ff_kevent error:%d, %s\n", errno,
-                        strerror(errno));
-                    return -1;
-                }
-
-                available--;
-            } while (available);
-        } else if (event.filter == EVFILT_READ) {
+        if (event.filter == EVFILT_READ) {
             void *mb;
-            ssize_t readlen = ff_read(clientfd, &mb, 4096);
+            struct sockaddr_in recvaddress;
+            socklen_t addr_len = sizeof(recvaddress);
+            ssize_t readlen = ff_recvfrom(clientfd, &mb, 256, 0, (struct linux_sockaddr *) &recvaddress, &addr_len);
 
             struct rte_mbuf *rte_mb = ff_rte_frm_extcl(mb);
             ff_mbuf_detach_rte(mb);
@@ -96,17 +64,24 @@ int loop(void *arg)
 
             rte_pktmbuf_reset(rte_mb);
             char *data = rte_pktmbuf_mtod(rte_mb, char *);
-            memcpy(data, html_hdr, hdr_size);
-            rte_mb->data_len = hdr_size + opt_bodysize;
-            rte_mb->pkt_len = rte_mb->data_len;
 
+            struct sockaddr_in sendaddress;
+            bzero(&sendaddress, sizeof(sendaddress));
+            sendaddress.sin_family = AF_INET;
+            sendaddress.sin_port = htons(5005);
+            sendaddress.sin_addr.s_addr = inet_addr("10.10.1.1");
+
+            memcpy(data, udp_message, strlen(udp_message));
+            rte_mb->data_len = strlen(udp_message);
+            rte_mb->pkt_len = rte_mb->data_len;
             mb = ff_mbuf_get(NULL, rte_mb, data, rte_mb->data_len);
-            ssize_t writelen = ff_write(clientfd, mb, rte_mb->data_len);
+            ssize_t writelen = ff_sendto(clientfd, mb, rte_mb->data_len, 0,
+                                        (struct linux_sockaddr *) &sendaddress, sizeof(sendaddress));
             if (writelen < 0){
                 printf("ff_write failed:%d, %s\n", errno,
                     strerror(errno));
                 ff_close(clientfd);
-            }
+            }    
         } else {
             printf("unknown event: %8.8X\n", event.flags);
         }
@@ -119,20 +94,13 @@ int main(int argc, char * argv[])
 {
     ff_init(argc, argv);
 
-    if (argc > 1)
-        opt_bodysize = atoi(argv[1]);
-    sprintf(html_hdr, html_template, opt_bodysize);
-    hdr_size = strlen(html_hdr);
-    printf("HTML body size %u B\nMessage size %u B\n", opt_bodysize,
-           hdr_size + opt_bodysize);
-
     kq = ff_kqueue();
     if (kq < 0) {
         printf("ff_kqueue failed, errno:%d, %s\n", errno, strerror(errno));
         exit(1);
     }
 
-    sockfd = ff_socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = ff_socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
         printf("ff_socket failed, sockfd:%d, errno:%d, %s\n", sockfd, errno, strerror(errno));
         exit(1);
@@ -151,12 +119,6 @@ int main(int argc, char * argv[])
     int ret = ff_bind(sockfd, (struct linux_sockaddr *)&my_addr, sizeof(my_addr));
     if (ret < 0) {
         printf("ff_bind failed, sockfd:%d, errno:%d, %s\n", sockfd, errno, strerror(errno));
-        exit(1);
-    }
-
-     ret = ff_listen(sockfd, MAX_EVENTS);
-    if (ret < 0) {
-        printf("ff_listen failed, sockfd:%d, errno:%d, %s\n", sockfd, errno, strerror(errno));
         exit(1);
     }
 
