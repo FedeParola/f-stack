@@ -61,7 +61,8 @@ CFLAGS+= --param large-function-growth=100000
 CFLAGS+= --param max-inline-insns-single=10000
 endif
 endif
-WERROR?= -Werror -Wno-unused-variable
+# WERROR?= -Werror -Wno-unused-variable
+WERROR?= -Wno-unused-variable
 
 # XXX LOCORE means "don't declare C stuff" not "for locore.s".
 ASM_CFLAGS= -x assembler-with-cpp -DLOCORE ${CFLAGS} ${KERNEL_CFLAGS}

@@ -10,9 +10,9 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "ff_config.h"
-#include "ff_api.h"
-#include "ff_epoll.h"
+#include "../lib/ff_config.h"
+#include "../lib/ff_api.h"
+#include "../lib/ff_epoll.h"
 
 
 #define MAX_EVENTS 512

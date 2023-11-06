@@ -58,7 +58,7 @@ do
     then
         echo "${bin} --conf ${conf} --proc-type=primary --proc-id=${proc_id} ${others}"
         ${bin} --conf ${conf} --proc-type=primary --proc-id=${proc_id} ${others} &
-        sleep 5
+        sleep 20
     else
         echo "${bin} --conf ${conf} --proc-type=secondary --proc-id=${proc_id} ${others}"
         ${bin} --conf ${conf} --proc-type=secondary --proc-id=${proc_id} ${others} &

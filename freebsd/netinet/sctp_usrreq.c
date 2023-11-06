@@ -1519,6 +1519,7 @@ static int
 sctp_getopt(struct socket *so, int optname, void *optval, size_t *optsize,
     void *p)
 {
+	printf("Reaching sctp_getopt\n");
 	struct sctp_inpcb *inp = NULL;
 	int error, val = 0;
 	struct sctp_tcb *stcb = NULL;
@@ -4043,6 +4044,7 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 		}
 	case SCTP_PLUGGABLE_SS:
 		{
+			printf("sctp setsockopt here1\n");
 			struct sctp_assoc_value *av;
 
 			SCTP_CHECK_AND_CAST(av, optval, struct sctp_assoc_value, optsize);
@@ -4096,6 +4098,7 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 		}
 	case SCTP_SS_VALUE:
 		{
+			printf("sctp setsockopt here1\n");
 			struct sctp_stream_value *av;
 
 			SCTP_CHECK_AND_CAST(av, optval, struct sctp_stream_value, optsize);
@@ -4140,6 +4143,7 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 		break;
 	case SCTP_CONTEXT:
 		{
+			printf("sctp setsockopt here1\n");
 			struct sctp_assoc_value *av;
 
 			SCTP_CHECK_AND_CAST(av, optval, struct sctp_assoc_value, optsize);
@@ -4174,6 +4178,7 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 		}
 	case SCTP_VRF_ID:
 		{
+			printf("sctp setsockopt here1\n");
 			uint32_t *default_vrfid;
 
 			SCTP_CHECK_AND_CAST(default_vrfid, optval, uint32_t, optsize);
@@ -7109,7 +7114,6 @@ sctp_listen(struct socket *so, int backlog, struct thread *p)
 	 * sys/kern/uipc_socket.c module to reverse this but this MUST be in
 	 * place if the socket API for SCTP is to work properly.
 	 */
-
 	int error = 0;
 	struct sctp_inpcb *inp;
 
@@ -7267,6 +7271,7 @@ static int sctp_defered_wakeup_cnt = 0;
 int
 sctp_accept(struct socket *so, struct sockaddr **addr)
 {
+	printf("at sctp accept\n");
 	struct sctp_tcb *stcb;
 	struct sctp_inpcb *inp;
 	union sctp_sockstore store;

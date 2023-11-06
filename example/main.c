@@ -9,9 +9,10 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/ioctl.h>
+#include <netinet/sctp.h>
 
-#include "ff_config.h"
-#include "ff_api.h"
+#include "../lib/ff_config.h"
+#include "../lib/ff_api.h"
 
 #define MAX_EVENTS 512
 
@@ -82,16 +83,15 @@ int loop(void *arg)
         } else if (clientfd == sockfd || clientfd == sockfd6) {
 #else
         } else if (clientfd == sockfd) {
-#endif
+#endif      
             int available = (int)event.data;
             do {
-                int nclientfd = ff_accept(clientfd, NULL, NULL);
+                int nclientfd = ff_accept(clientfd, (struct linux_sockaddr *)NULL, NULL);
                 if (nclientfd < 0) {
                     printf("ff_accept failed:%d, %s\n", errno,
                         strerror(errno));
                     break;
                 }
-
                 /* Add to event list */
                 EV_SET(&kevSet, nclientfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
 
@@ -105,13 +105,16 @@ int loop(void *arg)
             } while (available);
         } else if (event.filter == EVFILT_READ) {
             char buf[256];
-            ssize_t readlen = ff_read(clientfd, buf, sizeof(buf));
-            ssize_t writelen = ff_write(clientfd, html, sizeof(html) - 1);
-            if (writelen < 0){
-                printf("ff_write failed:%d, %s\n", errno,
-                    strerror(errno));
-                ff_close(clientfd);
-            }
+            struct sockaddr_in recv_addr;
+            socklen_t recv_len = sizeof(recv_addr);
+            ssize_t readlen = ff_recvfrom(clientfd, buf, sizeof(buf), 0, (struct linux_sockaddr *)&recv_addr, &recv_len);
+            printf("%s\n", buf);
+            // ssize_t writelen = ff_write(clientfd, html, sizeof(html) - 1);
+            // if (writelen < 0){
+            //     printf("ff_write failed:%d, %s\n", errno,
+            //         strerror(errno));
+            //     ff_close(clientfd);
+            // }
         } else {
             printf("unknown event: %8.8X\n", event.flags);
         }
@@ -130,7 +133,7 @@ int main(int argc, char * argv[])
         exit(1);
     }
 
-    sockfd = ff_socket(AF_INET, SOCK_STREAM, 0);
+    sockfd = ff_socket(AF_INET, SOCK_SEQPACKET, IPPROTO_SCTP);
     if (sockfd < 0) {
         printf("ff_socket failed, sockfd:%d, errno:%d, %s\n", sockfd, errno, strerror(errno));
         exit(1);
@@ -140,10 +143,16 @@ int main(int argc, char * argv[])
     int on = 1;
     ff_ioctl(sockfd, FIONBIO, &on);
 
+    struct sctp_initmsg initmsg = {
+            .sinit_num_ostreams = 5,
+            .sinit_max_instreams = 5,
+            .sinit_max_attempts = 4,
+    };    
+
     struct sockaddr_in my_addr;
     bzero(&my_addr, sizeof(my_addr));
     my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(80);
+    my_addr.sin_port = htons(2905);
     my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     int ret = ff_bind(sockfd, (struct linux_sockaddr *)&my_addr, sizeof(my_addr));
@@ -152,7 +161,13 @@ int main(int argc, char * argv[])
         exit(1);
     }
 
-     ret = ff_listen(sockfd, MAX_EVENTS);
+    ret = ff_setsockopt(sockfd, IPPROTO_SCTP, SCTP_INITMSG, &initmsg, sizeof(initmsg));
+    if (ret < 0) {
+        printf("ff_setsockopt failed, sockfd:%d, errno:%d, %s\n", sockfd, errno, strerror(errno));
+        exit(1);
+    }
+
+    ret = ff_listen(sockfd, initmsg.sinit_max_instreams);
     if (ret < 0) {
         printf("ff_listen failed, sockfd:%d, errno:%d, %s\n", sockfd, errno, strerror(errno));
         exit(1);

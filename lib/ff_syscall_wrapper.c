@@ -46,6 +46,7 @@
 #include <sys/file.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <netinet/sctp.h>
 #include <sys/ttycom.h>
 #include <sys/filio.h>
 #include <sys/sysproto.h>
@@ -108,6 +109,13 @@
 #define LINUX_TCP_KEEPCNT     6
 #define LINUX_TCP_INFO        11
 #define LINUX_TCP_MD5SIG      14
+
+#define LINUX_SCTP_RTOINFO	  0
+#define LINUX_SCTP_ASSOCINFO  1
+#define LINUX_SCTP_INITMSG	  2
+#define LINUX_SCTP_NODELAY	  3
+#define LINUX_SCTP_AUTOCLOSE  4
+
 
 /* setsockopt/getsockopt define end */
 
@@ -448,6 +456,26 @@ tcp_opt_convert(int optname)
 }
 
 static int
+sctp_opt_convert(int optname)
+{
+   switch(optname) {
+        case LINUX_SCTP_RTOINFO:
+            return SCTP_RTOINFO;
+        case LINUX_SCTP_ASSOCINFO:
+            return SCTP_ASSOCINFO;
+        case LINUX_SCTP_INITMSG:
+            return SCTP_INITMSG;
+        case LINUX_SCTP_NODELAY	:
+            return SCTP_NODELAY;
+        case LINUX_SCTP_AUTOCLOSE:
+            return SCTP_AUTOCLOSE;
+        default:
+            return -1;
+    }
+}
+
+
+static int
 ip_opt_convert2linux(int optname)
 {
     switch(optname) {
@@ -493,6 +521,8 @@ linux2freebsd_opt(int level, int optname)
             return ip6_opt_convert(optname);
         case IPPROTO_TCP:
             return tcp_opt_convert(optname);
+        case IPPROTO_SCTP:
+            return sctp_opt_convert(optname);    
         default:
             return -1;
     }
@@ -603,7 +633,7 @@ ff_setsockopt(int s, int level, int optname, const void *optval,
     if ((rc = kern_setsockopt(curthread, s, level, optname,
             __DECONST(void *, optval), UIO_USERSPACE, optlen)))
         goto kern_fail;
-
+    
     return (rc);
 
 kern_fail:

@@ -75,10 +75,17 @@ MALLOC_DEFINE(SCTP_M_MCORE, "sctp_mcore", "sctp mcore queue");
 /* Global NON-VNET structure that controls the iterator */
 struct iterator_control sctp_it_ctl;
 
-void
-sctp_wakeup_iterator(void)
-{
-	wakeup(&sctp_it_ctl.iterator_running);
+// void
+// sctp_wakeup_iterator(void)
+// {
+// 	wakeup(&sctp_it_ctl.iterator_running);
+// }
+void sctp_wakeup_iterator(void) 
+{ 
+	if (0) {
+		wakeup(&sctp_it_ctl.iterator_running);
+	}else 
+		sctp_iterator_worker(); 
 }
 
 static void

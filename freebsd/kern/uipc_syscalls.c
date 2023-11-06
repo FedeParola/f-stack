@@ -260,7 +260,7 @@ kern_listen(struct thread *td, int s, int backlog)
 		error = mac_socket_check_listen(td->td_ucred, so);
 		if (error == 0)
 #endif
-			error = solisten(so, backlog, td);
+		error = solisten(so, backlog, td);
 		fdrop(fp, td);
 	}
 	return (error);

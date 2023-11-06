@@ -6488,6 +6488,7 @@ sctp_soreceive(struct socket *so,
     struct mbuf **controlp,
     int *flagsp)
 {
+	printf("reaching sctp_soreceive\n");
 	int error, fromlen;
 	uint8_t sockbuf[256];
 	struct sockaddr *from;
