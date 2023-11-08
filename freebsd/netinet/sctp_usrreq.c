@@ -7271,7 +7271,6 @@ static int sctp_defered_wakeup_cnt = 0;
 int
 sctp_accept(struct socket *so, struct sockaddr **addr)
 {
-	printf("at sctp accept\n");
 	struct sctp_tcb *stcb;
 	struct sctp_inpcb *inp;
 	union sctp_sockstore store;

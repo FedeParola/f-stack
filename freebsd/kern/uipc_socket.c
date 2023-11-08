@@ -1290,7 +1290,6 @@ soabort(struct socket *so)
 int
 soaccept(struct socket *so, struct sockaddr **nam)
 {
-	printf("at soaccept \n");
 	int error;
 
 	SOCK_LOCK(so);
