@@ -42,6 +42,8 @@ endif
 #FF_NETGRAPH=1
 #FF_IPFW=1
 
+#SCTP SUPPORT
+FF_SCTP=1
 #FF_USE_PAGE_ARRAY=1
 #FF_ZC_SEND=1
 FF_INET6=1
@@ -130,6 +132,10 @@ endif
 ifdef FF_IPSEC
 HOST_CFLAGS+= -DIPSEC
 CFLAGS+= -DIPSEC
+endif
+
+ifdef FF_SCTP
+CFLAGS+= -DSCTP
 endif
 
 HOST_C= ${CC} -c $(HOST_CFLAGS) ${HOST_INCLUDES} ${WERROR} ${PROF} $<
@@ -295,6 +301,7 @@ CRYPTO_SRCS+=               \
 else
 CRYPTO_SRCS+=               \
 	sha1.c              \
+	sha256c.c			\
 	siphash.c
 endif
 
@@ -364,6 +371,7 @@ LIBKERN_SRCS+=		 \
 	inet_ntoa.c	 \
 	jenkins_hash.c   \
 	strlcpy.c	 \
+	timingsafe_bcmp.c	\
 	strnlen.c
 endif
 
@@ -500,6 +508,26 @@ NETINET_SRCS+=		\
 	alias_sctp.c    \
 	alias_util.c
 
+ifdef FF_SCTP
+NETINET_SRCS+=	\
+	sctp_asconf.c	\
+	sctp_auth.c	\
+	sctp_bsd_addr.c	\
+	sctp_cc_functions.c	\
+	sctp_crc32.c	\
+	sctp_indata.c	\
+	sctp_input.c	\
+	sctp_kdtrace.c	\
+	sctp_output.c	\
+	sctp_pcb.c	\
+	sctp_peeloff.c	\
+	sctp_ss_functions.c	\
+	sctp_sysctl.c	\
+	sctp_timer.c	\
+	sctp_usrreq.c	\
+	sctputil.c
+endif
+
 ifdef FF_INET6
 NETINET6_SRCS+=		\
 	dest6.c		\
@@ -530,10 +558,10 @@ NETINET6_SRCS+=		\
 	udp6_usrreq.c	\
 	in6_cksum.c	\
 	in6_fib.c	\
-	in6_gif.c
+	in6_gif.c	\
+	sctp6_usrreq.c
 	#ip6_gre.c
 	#ip6_ipsec.c
-	#sctp6_usrreq.c
 	#in6_rss.c
 
 ifdef FF_TCPHPTS

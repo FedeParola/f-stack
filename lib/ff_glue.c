@@ -1007,6 +1007,11 @@ pgsigio(sigiop, sig, checkctty)
 #endif
 }
 
+int kproc_create(void (*func)(void *), void *arg, struct proc **newpp, int flags, int pages, const char *fmt, ...) 
+{ 
+    return 0; 
+}
+
 void
 kproc_exit(int ecode)
 {
