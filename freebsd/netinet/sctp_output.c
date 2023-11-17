@@ -4220,6 +4220,7 @@ sctp_lowlevel_chunk_output(struct sctp_inpcb *inp,
 #endif
 			/* send it out.  table id is taken from stcb */
 			SCTP_PROBE5(send, NULL, stcb, ip, stcb, sctphdr);
+			printf("before SCTP_IP_UPTPUT: opak : %p o_pak->next: %p\n", o_pak, o_pak->m_next);
 			SCTP_IP_OUTPUT(ret, o_pak, ro, stcb, vrf_id);
 			if (port) {
 				UDPSTAT_INC(udps_opackets);
@@ -6376,6 +6377,7 @@ sctp_msg_append(struct sctp_tcb *stcb,
 	 */
 	sp->length = 0;
 	for (at = m; at; at = SCTP_BUF_NEXT(at)) {
+		printf("Append to the queueu : at/m : %p\n", at);
 		if (SCTP_BUF_NEXT(at) == NULL)
 			sp->tail_mbuf = at;
 		sp->length += SCTP_BUF_LEN(at);
@@ -6505,6 +6507,7 @@ error_out:
 			}
 			return (outchain);
 		} else {
+			printf("hereeeee\n");
 			/* copy the old fashion way */
 			appendchain = SCTP_M_COPYM(clonechain, 0, M_COPYALL, M_NOWAIT);
 #ifdef SCTP_MBUF_LOGGING
@@ -6523,8 +6526,10 @@ error_out:
 	if (outchain) {
 		/* tack on to the end */
 		if (*endofchain != NULL) {
+			printf("here in tackon end\n");
 			SCTP_BUF_NEXT(((*endofchain))) = appendchain;
 		} else {
+			printf("here in tackon end 2\n");
 			m = outchain;
 			while (m) {
 				if (SCTP_BUF_NEXT(m) == NULL) {
@@ -6537,6 +6542,7 @@ error_out:
 		/*
 		 * save off the end and update the end-chain position
 		 */
+		printf("here in tackon end 3\n");
 		m = appendchain;
 		while (m) {
 			if (SCTP_BUF_NEXT(m) == NULL) {
@@ -8099,6 +8105,7 @@ again_one_more_time:
 				if ((auth == NULL) &&
 				    (sctp_auth_is_required_chunk(chk->rec.chunk_id.id,
 				    stcb->asoc.peer_auth_chunks))) {
+					printf("Got outchain here1\n");	
 					outchain = sctp_add_auth_chunk(outchain,
 					    &endoutchain,
 					    &auth,
@@ -8107,6 +8114,7 @@ again_one_more_time:
 					    chk->rec.chunk_id.id);
 					SCTP_STAT_INCR_COUNTER64(sctps_outcontrolchunks);
 				}
+				printf("Got outchain here2\n");	
 				outchain = sctp_copy_mbufchain(chk->data, outchain, &endoutchain,
 				    (int)chk->rec.chunk_id.can_take_data,
 				    chk->send_size, chk->copy_by_ref);
@@ -8332,9 +8340,13 @@ again_one_more_time:
 					    chk->rec.chunk_id.id);
 					SCTP_STAT_INCR_COUNTER64(sctps_outcontrolchunks);
 				}
+				printf("outchain-before copy mbuf\n");
+				printf("sctp_med_chunk_output : chk->data : %p\n", chk->data);
+				printf("sctp_med_chunk_output : chk->rec.chunk_id.can_take_data : %d\n", chk->rec.chunk_id.can_take_data);
 				outchain = sctp_copy_mbufchain(chk->data, outchain, &endoutchain,
 				    (int)chk->rec.chunk_id.can_take_data,
 				    chk->send_size, chk->copy_by_ref);
+				printf("sctp_med_chunk_output : outchain : %p\n", outchain);	
 				if (outchain == NULL) {
 					*reason_code = 8;
 					SCTP_LTRACE_ERR_RET(inp, stcb, NULL, SCTP_FROM_SCTP_OUTPUT, ENOMEM);
@@ -8667,8 +8679,14 @@ again_one_more_time:
 							break;
 						}
 					}
+					printf("Got outchain here4\n");	
+					printf("chk->data: %p\n", chk->data);
+					printf("chk->data->next: %p\n", chk->data->m_next);
+					printf("chk->send_size: %d\n", chk->send_size);
+					printf("chk->copy_by_ref: %d\n", chk->copy_by_ref);
 					outchain = sctp_copy_mbufchain(chk->data, outchain, &endoutchain, 0,
 					    chk->send_size, chk->copy_by_ref);
+					printf("outchain after sctp copy mbuf : %p\n", outchain); 	
 					if (outchain == NULL) {
 						SCTPDBG(SCTP_DEBUG_OUTPUT3, "No memory?\n");
 						if (!SCTP_OS_TIMER_PENDING(&net->rxt_timer.timer)) {
@@ -8777,6 +8795,7 @@ no_data_fill:
 				net->last_sent_time = *now;
 			}
 			/* Now send it, if there is anything to send :> */
+			printf("sctp_lowlevel_chunk_output before: outchain : %p\n", outchain);
 			if ((error = sctp_lowlevel_chunk_output(inp,
 			    stcb,
 			    net,
@@ -10119,6 +10138,7 @@ do_it_again:
 	}
 	burst_cnt = 0;
 	do {
+		printf("sctp med chunk output\n");
 		error = sctp_med_chunk_output(inp, stcb, asoc, &num_out,
 		    &reason_code, 0, from_where,
 		    &now, &now_filled, frag_point, so_locked);
@@ -12444,6 +12464,7 @@ sctp_sosend(struct socket *so,
 		}
 	}
 #endif
+	printf("sctp_sosend : top : %p\n", top);
 	error = sctp_lower_sosend(so, addr_to_use, uio, top,
 	    control,
 	    flags,
@@ -12520,8 +12541,9 @@ sctp_lower_sosend(struct socket *so,
 		}
 		sndlen = uio->uio_resid;
 	} else {
+		printf("Converting i_pak chain to top\n");
 		top = SCTP_HEADER_TO_CHAIN(i_pak);
-		sndlen = SCTP_HEADER_LEN(i_pak);
+		sndlen = SCTP_BUF_LEN(i_pak);
 	}
 	SCTPDBG(SCTP_DEBUG_OUTPUT1, "Send called addr:%p send length %zd\n",
 	    (void *)addr,
@@ -13352,6 +13374,7 @@ skip_preblock:
 				if (hold_tcblock == 0) {
 					if (SCTP_TCB_TRYLOCK(stcb)) {
 						hold_tcblock = 1;
+						printf("sctp chunk output \n");
 						sctp_chunk_output(inp,
 						    stcb,
 						    SCTP_OUTPUT_FROM_USR_SEND, SCTP_SO_LOCKED);
@@ -13457,6 +13480,7 @@ skip_preblock:
 		}
 	} else {
 		/* We send in a 0, since we do NOT have any locks */
+		printf("before sctp_msg_append: top: %p\n", top);
 		error = sctp_msg_append(stcb, net, top, srcv, 0);
 		top = NULL;
 		if (sinfo_flags & SCTP_EOF) {
@@ -13630,6 +13654,7 @@ skip_out_eof:
 			 * send
 			 */
 			if (SCTP_TCB_TRYLOCK(stcb)) {
+				printf("sctp chink!\n");
 				sctp_chunk_output(inp, stcb, SCTP_OUTPUT_FROM_USR_SEND, SCTP_SO_LOCKED);
 				hold_tcblock = 1;
 			}

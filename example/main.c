@@ -11,8 +11,9 @@
 #include <sys/ioctl.h>
 #include <rte_mbuf.h>
 
-#include "ff_config.h"
-#include "ff_api.h"
+#include "../lib/ff_config.h"
+#include "../lib/ff_api.h"
+#include "../lib/ff_veth.h"
 
 #define MAX_EVENTS 512
 

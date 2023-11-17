@@ -1841,38 +1841,74 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
     struct rte_mempool *mbuf_pool = pktmbuf_pool[lcore_conf.socket_id];
     struct rte_mbuf *head = NULL;
     void *p_bsdbuf = m;
+    void *second_sctp_mbuf = NULL;
     void *dt = NULL;
     unsigned  ln = 0;
     struct rte_mbuf *rte_mbuf_frm_bsd = NULL;
     void *prepend_data = NULL;
     char *rte_prepend_data = NULL;
     uint16_t prepend_len = 0;
+    uint16_t second_mbuf_data_len = 0 ;
+    uint16_t first_mbuf_data_len = 0 ; 
     uint16_t headroomavail = 0;
-    
+    printf("at dpdk_if_send: p_bsdbuf : %p\n", p_bsdbuf);
     /* Get the next mbuf in the chain which contains the http data */
     int ret = ff_next_mbuf(&p_bsdbuf, &dt, &ln);
     if (ret == 0 && p_bsdbuf != NULL){
-        prepend_len = ln;
-        rte_mbuf_frm_bsd = ff_rte_frm_extcl(p_bsdbuf);
+        second_sctp_mbuf = p_bsdbuf;
+        printf("at dpdk_if_send: p_bsdbuf->next : %p\n", second_sctp_mbuf);
+        prepend_len += ln;
+        first_mbuf_data_len = ln;
+        printf("first_mbuf_data_len : %d\n", first_mbuf_data_len);
+        int ret = ff_next_mbuf(&p_bsdbuf, &dt, &ln);
+        if (ret == 0 && p_bsdbuf != NULL){
+            prepend_len += ln;
+            second_mbuf_data_len = ln;
+            printf("second_mbuf_data_len : %d\n", second_mbuf_data_len);
+            rte_mbuf_frm_bsd = ff_rte_frm_extcl(p_bsdbuf);
+            printf("at dpdk_if_send 1: p_bsdbuf->next->next : %p\n", p_bsdbuf);
+        }
     }
+    printf("prepend_ln : %d\n", prepend_len);
     if (rte_mbuf_frm_bsd != NULL){
        headroomavail = rte_pktmbuf_headroom(rte_mbuf_frm_bsd);
+       printf("headroom : %d offset: %d\n", headroomavail, rte_mbuf_frm_bsd->data_off);
     }
-
     /*If all conditions meet it is a resused rte_mbuf */
-    if ((p_bsdbuf != NULL) && (rte_mbuf_frm_bsd != NULL) && (headroomavail >= prepend_len) && (rte_mbuf_frm_bsd->pkt_len !=0) && (rte_mbuf_frm_bsd->data_len !=0)){
+    if ((p_bsdbuf != NULL) && (rte_mbuf_frm_bsd != NULL) && (headroomavail >= prepend_len) 
+        && (rte_mbuf_frm_bsd->pkt_len !=0) && (rte_mbuf_frm_bsd->data_len !=0))
+    {
         head = rte_mbuf_frm_bsd;
-        prepend_data = ff_mbuf_mtod(m);
-        rte_prepend_data = rte_pktmbuf_prepend(rte_mbuf_frm_bsd, prepend_len);
+        /* copy second sctp mbuf first */
+        prepend_data = ff_mbuf_mtod(second_sctp_mbuf);
+        rte_prepend_data = rte_pktmbuf_prepend(rte_mbuf_frm_bsd, second_mbuf_data_len);
         if (rte_prepend_data == NULL){
             printf("rte_pktmbuf_prepend failed\n");
         }
-        bcopy(prepend_data, rte_prepend_data, prepend_len);
+        printf("here zerocopy\n");
+        bcopy(prepend_data, rte_prepend_data, second_mbuf_data_len);
+        printf(" offset 1: %d\n", rte_mbuf_frm_bsd->data_off);
+        /* copy first sctp mbuf*/
+        prepend_data = ff_mbuf_mtod(m);
+        rte_prepend_data = rte_pktmbuf_prepend(rte_mbuf_frm_bsd, first_mbuf_data_len);
+        if (rte_prepend_data == NULL){
+            printf("rte_pktmbuf_prepend failed\n");
+        }
+        bcopy(prepend_data, rte_prepend_data, second_mbuf_data_len);
+        printf(" offset 2: %d\n", rte_mbuf_frm_bsd->data_off);
+
+        char* dhhh = rte_pktmbuf_mtod(head, char *);
+        printf("Content\n");
+        for (int i = 0 ; i < head->data_len ; i ++){
+            printf("%s", dhhh);
+        }
+        printf("\n");
         /* Increase the ref-count of the rte_mbuf*/
         rte_mbuf_refcnt_set(head, 2);
 
     /* normal packet processing for packets other than data packets */
     }else {
+        printf("here n-zerocopy\n");
         head = rte_pktmbuf_alloc(mbuf_pool);
         if (head == NULL) {
             ff_mbuf_free(m);
@@ -1902,7 +1938,6 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
 
             prev = cur;
             void *data = rte_pktmbuf_mtod(cur, void*);
-            // printf("in ff_dpdk_send data = %p\n", data);
             int len = total > RTE_MBUF_DEFAULT_DATAROOM ? RTE_MBUF_DEFAULT_DATAROOM : total;
             int ret = ff_mbuf_copydata(m, data, off, len);
             if (ret < 0) {

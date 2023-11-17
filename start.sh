@@ -11,7 +11,7 @@ function usage() {
 }
 
 conf=config.ini
-bin=./example/helloworld_udp
+bin=./example/helloworld_sctp 
 
 while getopts "c:b:o:h" args
 do

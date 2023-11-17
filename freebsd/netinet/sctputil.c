@@ -6301,9 +6301,13 @@ wait_some_more:
 		if (control->spec_flags & M_NOTIFICATION) {
 			out_flags |= MSG_NOTIFICATION;
 		}
-		uio->uio_resid = control->length;
+		uio->uio_resid -= control->length;
 		*mp = control->data;
 		m = control->data;
+		/* Added Temporarily, Doesnt make sense to set this type. 
+		   But user needs to extract rte_mbuf */
+		m->m_ext.ext_type = EXT_DISPOSABLE;
+		m->m_flags = M_EXT;
 		while (m) {
 			if (SCTP_BASE_SYSCTL(sctp_logging_level) & SCTP_SB_LOGGING_ENABLE) {
 				sctp_sblog(&so->so_rcv,
