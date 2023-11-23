@@ -1861,8 +1861,7 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
 
     /*If all conditions meet it is a resused rte_mbuf */
     if ((p_bsdbuf != NULL) && (rte_mbuf_frm_bsd != NULL) && (headroomavail >= prepend_len) && (rte_mbuf_frm_bsd->pkt_len !=0) && (rte_mbuf_frm_bsd->data_len !=0)){
-        head = rte_mbuf_frm_bsd;
-        printf("In zero copy\n"); 
+        head = rte_mbuf_frm_bsd; 
         prepend_data = ff_mbuf_mtod(m);
         rte_prepend_data = rte_pktmbuf_prepend(rte_mbuf_frm_bsd, prepend_len);
         if (rte_prepend_data == NULL){
