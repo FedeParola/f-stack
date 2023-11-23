@@ -722,6 +722,7 @@ install:
 	cp -f ff_event.h ${PREFIX_INCLUDE}/ff_event.h
 	cp -f ff_errno.h ${PREFIX_INCLUDE}/ff_errno.h
 	cp -f ff_epoll.h ${PREFIX_INCLUDE}/ff_epoll.h
+	cp -f ff_veth.h ${PREFIX_INCLUDE}/ff_veth.h
 	cp -f ${TOPDIR}/start.sh ${PREFIX_BIN}/ff_start
 	test -f '${F-STACK_CONF}' || cp -f ${TOPDIR}/config.ini ${F-STACK_CONF}
 
@@ -733,6 +734,7 @@ uninstall:
 	rm -rf ${PREFIX_INCLUDE}/ff_event.h
 	rm -rf ${PREFIX_INCLUDE}/ff_errno.h
 	rm -rf ${PREFIX_INCLUDE}/ff_epoll.h
+	rm -rf ${PREFIX_INCLUDE}/ff_veth.h
 	rm -rf ${PREFIX_BIN}/ff_start
 	rm -rf ${F-STACK_CONF}
 

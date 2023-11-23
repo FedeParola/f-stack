@@ -13,6 +13,7 @@
 
 #include "ff_config.h"
 #include "ff_api.h"
+#include "ff_veth.h"
 
 
 #define MAX_EVENTS 512
@@ -33,7 +34,7 @@ static unsigned hdr_size;
 
 char html_template[] =
 "HTTP/1.1 200 OK\r\n"
-"Server: F-Stack\r\n"
+"Server: Z-Stack\r\n"
 "Date: Sat, 5 Feb 2017 09:26:33 GMT\r\n"
 "Content-Type: text/html\r\n"
 "Content-Length: %lu\r\n"
@@ -119,9 +120,8 @@ int loop(void *arg)
 int main(int argc, char * argv[])
 {
     ff_init(argc, argv);
-
-    if (argc > 1)
-        opt_bodysize = atoi(argv[1]);
+    printf("argsc: %d", argc); 
+    opt_bodysize = 64;    
     sprintf(html_hdr, html_template, opt_bodysize);
     hdr_size = strlen(html_hdr);
     printf("HTML body size %u B\nMessage size %u B\n", opt_bodysize,
