@@ -21,8 +21,9 @@ all:
 	cc ${CFLAGS} -DINET6 -o ${TARGET} main.c ${LIBS}
 	cc ${CFLAGS} -o ${TARGET}_epoll main_epoll.c ${LIBS}
 	cc ${CFLAGS} -o ${TARGET}_sctpc sctp_client.c ${LIBS}
+	cc ${CFLAGS} -o ${TARGET}_sctpc_epoll sctp_client_epoll.c ${LIBS}
 
 .PHONY: clean
 clean:
-	rm -f *.o ${TARGET} ${TARGET}_epoll ${TARGET}_sctpc
+	rm -f *.o ${TARGET} ${TARGET}_epoll ${TARGET}_sctpc ${TARGET}_sctpc_epoll
 

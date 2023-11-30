@@ -11,7 +11,7 @@ function usage() {
 }
 
 conf=config.ini
-bin=./example/helloworld_sctpc
+bin=./example/helloworld_sctpc_epoll
 
 while getopts "c:b:o:h" args
 do
@@ -23,7 +23,7 @@ do
             bin=$OPTARG
             ;;
          o)
-            others=$OPTARG
+            others+=$OPTARG
             ;;
          h)
             usage
@@ -57,7 +57,7 @@ do
     if ((proc_id == 0))
     then
         echo "${bin} --conf ${conf} --proc-type=primary --proc-id=${proc_id} ${others}"
-        ${bin} --conf ${conf} --proc-type=primary --proc-id=${proc_id} ${others} &
+        ${bin} --conf ${conf} --proc-type=primary --proc-id=${proc_id} ${others} 100 1024 &
         sleep 20
     else
         echo "${bin} --conf ${conf} --proc-type=secondary --proc-id=${proc_id} ${others}"

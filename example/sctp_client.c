@@ -48,9 +48,11 @@ int loop(void *arg)
     clock_gettime(CLOCK_MONOTONIC, &current_time);
     if (current_time.tv_sec - start_time.tv_sec > duration) {
         double throughput = ((double)(total_bytes_sent + total_bytes_received) / duration) / 1024;
+        double througput_recv = ((double) total_bytes_received / duration) / 1024 ; 
         printf( "Total data transfer : %ld KBytes\n", ((total_bytes_received + total_bytes_sent)/ 1024));
         printf("Total KBytes sent : %ld\n", (total_bytes_sent/1024)); 
         printf("Total KBytes recv : %ld\n", (total_bytes_received/1024)); 
+        printf("Througput_recv : %f Kb/sec", througput_recv); 
         printf("Throughput: %f Kb/sec\n", throughput);
 
         for (int i = 0; i < no_conn; i++) {
@@ -78,17 +80,17 @@ int loop(void *arg)
             int error = 0 ; 
             socklen_t errlen = sizeof(error); 
             if ( ff_getsockopt(clientfd, SOL_SOCKET, SO_ERROR, &error, &errlen) == -1 ){
-                ff_close(clientfd); 
+                // ff_close(clientfd); 
                 continue;
             }
             if (error != 0 ){
-                fprintf(stderr, "Connection failed: %s\n", strerror(error));
+                // fprintf(stderr, "Connection failed: %s\n", strerror(error));
                 ff_close(clientfd);
                 continue;                
             }
             size_t sendlen = ff_write(clientfd, output_buffer, message_size);
              if (sendlen == -1 ){
-                perror("send failed"); 
+                // perror("send failed"); 
                 continue;
             }else if (sendlen== 0){
                 ff_close(clientfd);
@@ -122,6 +124,11 @@ int main(int argc, char * argv[])
     ff_init(argc, argv);
 
     printf("argc %d\n", argc);
+
+    if ( argc > 5){
+        no_conn = atoi(argv[5]);
+        message_size = atoi(argv[6]);
+    }
 
     printf("no_conn: %d, message_size: %d\n", no_conn, message_size); 
 
