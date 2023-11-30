@@ -12,6 +12,7 @@ function usage() {
 
 conf=config.ini
 bin=./example/helloworld_sctpc_epoll
+# bin=./example/helloworld
 
 while getopts "c:b:o:h" args
 do
