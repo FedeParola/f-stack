@@ -93,6 +93,7 @@ int loop(void *arg)
                         strerror(errno));
                     break;
                 }
+                printf("got conn\n"); 
                 /* Add to event list */
                 EV_SET(&kevSet, nclientfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
 
@@ -145,8 +146,8 @@ int main(int argc, char * argv[])
     ff_ioctl(sockfd, FIONBIO, &on);
 
     struct sctp_initmsg initmsg = {
-            .sinit_num_ostreams = 5,
-            .sinit_max_instreams = 5,
+            .sinit_num_ostreams = MAX_EVENTS,
+            .sinit_max_instreams = MAX_EVENTS,
             .sinit_max_attempts = 4,
     };    
 

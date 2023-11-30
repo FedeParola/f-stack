@@ -4887,6 +4887,7 @@ sctp_send_initiate(struct sctp_inpcb *inp, struct sctp_tcb *stcb, int so_locked)
 	    net->port, NULL,
 	    0, 0,
 	    so_locked))) {
+		printf("error %d\n", error);
 		SCTPDBG(SCTP_DEBUG_OUTPUT4, "Gak send error %d\n", error);
 		if (error == ENOBUFS) {
 			stcb->asoc.ifp_had_enobuf = 1;

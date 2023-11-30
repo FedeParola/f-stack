@@ -503,6 +503,7 @@ kern_connectat(struct thread *td, int dirfd, int fd, struct sockaddr *sa)
 	so = fp->f_data;
 	if (so->so_state & SS_ISCONNECTING) {
 		error = EALREADY;
+		printf("do i come here?\n"); 
 		goto done1;
 	}
 #ifdef KTRACE
