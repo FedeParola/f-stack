@@ -80,78 +80,80 @@ kproc_start(const void *udata)
  * flags are flags to fork1 (in unistd.h)
  * fmt and following will be *printf'd into (*newpp)->p_comm (for ps, etc.).
  */
-int
-kproc_create(void (*func)(void *), void *arg,
-    struct proc **newpp, int flags, int pages, const char *fmt, ...)
-{
-	struct fork_req fr;
-	int error;
-	va_list ap;
-	struct thread *td;
-	struct proc *p2;
 
-	if (!proc0.p_stats)
-		panic("kproc_create called too soon");
+int kproc_create(void (*func)(void *), void *arg, struct proc **newpp, int flags, int pages, const char *fmt, ...) { return 0; }
+// int
+// kproc_create(void (*func)(void *), void *arg,
+//     struct proc **newpp, int flags, int pages, const char *fmt, ...)
+// {
+// 	struct fork_req fr;
+// 	int error;
+// 	va_list ap;
+// 	struct thread *td;
+// 	struct proc *p2;
 
-	bzero(&fr, sizeof(fr));
-	fr.fr_flags = RFMEM | RFFDG | RFPROC | RFSTOPPED | flags;
-	fr.fr_pages = pages;
-	fr.fr_procp = &p2;
-	error = fork1(&thread0, &fr);
-	if (error)
-		return error;
+// 	if (!proc0.p_stats)
+// 		panic("kproc_create called too soon");
 
-	/* save a global descriptor, if desired */
-	if (newpp != NULL)
-		*newpp = p2;
+// 	bzero(&fr, sizeof(fr));
+// 	fr.fr_flags = RFMEM | RFFDG | RFPROC | RFSTOPPED | flags;
+// 	fr.fr_pages = pages;
+// 	fr.fr_procp = &p2;
+// 	error = fork1(&thread0, &fr);
+// 	if (error)
+// 		return error;
 
-	/* this is a non-swapped system process */
-	PROC_LOCK(p2);
-	td = FIRST_THREAD_IN_PROC(p2);
-	p2->p_flag |= P_SYSTEM | P_KPROC;
-	td->td_pflags |= TDP_KTHREAD;
-	mtx_lock(&p2->p_sigacts->ps_mtx);
-	p2->p_sigacts->ps_flag |= PS_NOCLDWAIT;
-	mtx_unlock(&p2->p_sigacts->ps_mtx);
-	PROC_UNLOCK(p2);
+// 	/* save a global descriptor, if desired */
+// 	if (newpp != NULL)
+// 		*newpp = p2;
 
-	/* set up arg0 for 'ps', et al */
-	va_start(ap, fmt);
-	vsnprintf(p2->p_comm, sizeof(p2->p_comm), fmt, ap);
-	va_end(ap);
-	/* set up arg0 for 'ps', et al */
-	va_start(ap, fmt);
-	vsnprintf(td->td_name, sizeof(td->td_name), fmt, ap);
-	va_end(ap);
-#ifdef KTR
-	sched_clear_tdname(td);
-#endif
-	TSTHREAD(td, td->td_name);
-#ifdef HWPMC_HOOKS
-	if (PMC_SYSTEM_SAMPLING_ACTIVE()) {
-		PMC_CALL_HOOK_UNLOCKED(td, PMC_FN_PROC_CREATE_LOG, p2);
-		PMC_CALL_HOOK_UNLOCKED(td, PMC_FN_THR_CREATE_LOG, NULL);
-	}
-#endif
+// 	/* this is a non-swapped system process */
+// 	PROC_LOCK(p2);
+// 	td = FIRST_THREAD_IN_PROC(p2);
+// 	p2->p_flag |= P_SYSTEM | P_KPROC;
+// 	td->td_pflags |= TDP_KTHREAD;
+// 	mtx_lock(&p2->p_sigacts->ps_mtx);
+// 	p2->p_sigacts->ps_flag |= PS_NOCLDWAIT;
+// 	mtx_unlock(&p2->p_sigacts->ps_mtx);
+// 	PROC_UNLOCK(p2);
 
-	/* call the processes' main()... */
-	cpu_fork_kthread_handler(td, func, arg);
+// 	/* set up arg0 for 'ps', et al */
+// 	va_start(ap, fmt);
+// 	vsnprintf(p2->p_comm, sizeof(p2->p_comm), fmt, ap);
+// 	va_end(ap);
+// 	/* set up arg0 for 'ps', et al */
+// 	va_start(ap, fmt);
+// 	vsnprintf(td->td_name, sizeof(td->td_name), fmt, ap);
+// 	va_end(ap);
+// #ifdef KTR
+// 	sched_clear_tdname(td);
+// #endif
+// 	TSTHREAD(td, td->td_name);
+// #ifdef HWPMC_HOOKS
+// 	if (PMC_SYSTEM_SAMPLING_ACTIVE()) {
+// 		PMC_CALL_HOOK_UNLOCKED(td, PMC_FN_PROC_CREATE_LOG, p2);
+// 		PMC_CALL_HOOK_UNLOCKED(td, PMC_FN_THR_CREATE_LOG, NULL);
+// 	}
+// #endif
 
-	/* Avoid inheriting affinity from a random parent. */
-	cpuset_kernthread(td);
-	thread_lock(td);
-	TD_SET_CAN_RUN(td);
-	sched_prio(td, PVM);
-	sched_user_prio(td, PUSER);
+// 	/* call the processes' main()... */
+// 	cpu_fork_kthread_handler(td, func, arg);
 
-	/* Delay putting it on the run queue until now. */
-	if (!(flags & RFSTOPPED))
-		sched_add(td, SRQ_BORING); 
-	else
-		thread_unlock(td);
+// 	/* Avoid inheriting affinity from a random parent. */
+// 	cpuset_kernthread(td);
+// 	thread_lock(td);
+// 	TD_SET_CAN_RUN(td);
+// 	sched_prio(td, PVM);
+// 	sched_user_prio(td, PUSER);
 
-	return 0;
-}
+// 	/* Delay putting it on the run queue until now. */
+// 	if (!(flags & RFSTOPPED))
+// 		sched_add(td, SRQ_BORING); 
+// 	else
+// 		thread_unlock(td);
+
+// 	return 0;
+// }
 
 void
 kproc_exit(int ecode)
