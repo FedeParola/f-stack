@@ -20,7 +20,8 @@ TARGET="helloworld"
 all:
 	cc ${CFLAGS} -DINET6 -o ${TARGET} main.c ${LIBS}
 	cc ${CFLAGS} -o ${TARGET}_epoll main_epoll.c ${LIBS}
+	cc ${CFLAGS} -o ${TARGET}_sctp_server sctp_server.c ${LIBS}
 
 .PHONY: clean
 clean:
-	rm -f *.o ${TARGET} ${TARGET}_epoll
+	rm -f *.o ${TARGET} ${TARGET}_epoll ${TARGET}_sctp_serve

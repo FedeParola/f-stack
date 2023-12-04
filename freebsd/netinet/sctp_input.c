@@ -5568,7 +5568,7 @@ sctp_common_input_processing(struct mbuf **mm, int iphlen, int offset, int lengt
 		    "Data chunk requires AUTH, skipped\n");
 		goto trigger_send;
 	}
-	if (length > offset) {
+	if (length > offset) { 
 		int retval;
 
 		/*

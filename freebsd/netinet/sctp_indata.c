@@ -2679,6 +2679,8 @@ sctp_process_data(struct mbuf **mm, int iphlen, int *offset, int length,
 	 */
 	asoc->last_data_chunk_from = net;
 
+	/* we dont want a copy here eve though more 
+	   memory might be consumed, we are trying to achieve zero copy  */
 	/*-
 	 * Now before we proceed we must figure out if this is a wasted
 	 * cluster... i.e. it is a small packet sent in and yet the driver
@@ -2686,27 +2688,28 @@ sctp_process_data(struct mbuf **mm, int iphlen, int *offset, int length,
 	 * to a smaller mbuf and free up the cluster mbuf. This will help
 	 * with cluster starvation.
 	 */
-	if (SCTP_BUF_LEN(m) < (long)MLEN && SCTP_BUF_NEXT(m) == NULL) {
-		/* we only handle mbufs that are singletons.. not chains */
-		m = sctp_get_mbuf_for_msg(SCTP_BUF_LEN(m), 0, M_NOWAIT, 1, MT_DATA);
-		if (m) {
-			/* ok lets see if we can copy the data up */
-			caddr_t *from, *to;
+	// if (SCTP_BUF_LEN(m) < (long)MLEN && SCTP_BUF_NEXT(m) == NULL) {
+	// 	printf("m: %p, len_buf: %d, mlen : %d\n", m, SCTP_BUF_LEN(m), MLEN); 
+	// 	/* we only handle mbufs that are singletons.. not chains */
+	// 	m = sctp_get_mbuf_for_msg(SCTP_BUF_LEN(m), 0, M_NOWAIT, 1, MT_DATA);
+	// 	if (m) {
+	// 		/* ok lets see if we can copy the data up */
+	// 		caddr_t *from, *to;
 
-			/* get the pointers and copy */
-			to = mtod(m, caddr_t *);
-			from = mtod((*mm), caddr_t *);
-			memcpy(to, from, SCTP_BUF_LEN((*mm)));
-			/* copy the length and free up the old */
-			SCTP_BUF_LEN(m) = SCTP_BUF_LEN((*mm));
-			sctp_m_freem(*mm);
-			/* success, back copy */
-			*mm = m;
-		} else {
-			/* We are in trouble in the mbuf world .. yikes */
-			m = *mm;
-		}
-	}
+	// 		/* get the pointers and copy */
+	// 		to = mtod(m, caddr_t *);
+	// 		from = mtod((*mm), caddr_t *);
+	// 		memcpy(to, from, SCTP_BUF_LEN((*mm)));
+	// 		/* copy the length and free up the old */
+	// 		SCTP_BUF_LEN(m) = SCTP_BUF_LEN((*mm));
+	// 		sctp_m_freem(*mm);
+	// 		/* success, back copy */
+	// 		*mm = m;
+	// 	} else {
+	// 		/* We are in trouble in the mbuf world .. yikes */
+	// 		m = *mm;
+	// 	}
+	// }
 	/* get pointer to the first chunk header */
 	ch = (struct sctp_chunkhdr *)sctp_m_getptr(m, *offset,
 	    sizeof(struct sctp_chunkhdr),

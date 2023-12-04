@@ -6301,8 +6301,8 @@ wait_some_more:
 		if (control->spec_flags & M_NOTIFICATION) {
 			out_flags |= MSG_NOTIFICATION;
 		}
-		uio->uio_resid = control->length;
-		*mp = control->data;
+		uio->uio_resid -= control->length;
+		*mp = control->data; 
 		m = control->data;
 		while (m) {
 			if (SCTP_BASE_SYSCTL(sctp_logging_level) & SCTP_SB_LOGGING_ENABLE) {

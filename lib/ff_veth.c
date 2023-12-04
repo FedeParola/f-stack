@@ -378,6 +378,17 @@ ff_veth_process_packet(void *arg, void *m)
     struct ifnet *ifp = (struct ifnet *)arg;
     struct mbuf *mb = (struct mbuf *)m;
 
+	// printf( "ff_veth profc\n"); 
+	// if ( mb ){
+	// 	printf("M POINTS TO : %p\n", mb);
+    //     printf("mlen : %d\n", mb->m_len);  
+	// 	printf( "m_flags : %d\n", mb->m_flags); 
+	// 	printf(" m->m_ext.ext_type : %d\n", mb->m_ext.ext_type); 
+
+	// 	if ( mb->m_ext.ext_free == ff_mbuf_ext_free ){
+	// 		printf("has ext free fn\n"); 
+	// 	}    
+    // }    
     mb->m_pkthdr.rcvif = ifp;
 
     ifp->if_input(ifp, mb);
