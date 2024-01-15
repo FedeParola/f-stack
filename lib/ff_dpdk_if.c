@@ -1876,6 +1876,13 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
 
     /* If all conditions are met, this is a reused rte_mbuf */
     if (head && rte_pktmbuf_headroom(head) >= prepend_len) {
+        /* Reset rte_mbuf metadata in case it is retransmitted */
+        ff_next_mbuf(&p_bsdbuf, &dt, &ln);
+        head->ol_flags = 0;
+        head->data_len = ln;
+        head->pkt_len = ln;
+        head->data_off = dt - head->buf_addr;
+
         /* Copy TCP/IP headers in headroom of payload rte_mbuf */
         rte_prepend_data = rte_pktmbuf_prepend(head, prepend_len);
         if (rte_prepend_data == NULL)
@@ -1892,7 +1899,6 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
         head->pkt_len = total;
         head->nb_segs = 1;
         struct rte_mbuf *prev = head, *next;
-        ff_next_mbuf(&p_bsdbuf, &dt, &ln);
         while (p_bsdbuf) {
             next = ff_rte_frm_extcl(p_bsdbuf);
             if (!next)
@@ -1904,6 +1910,7 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
             head->nb_segs++;
             ff_next_mbuf(&p_bsdbuf, &dt, &ln);
         }
+        prev->next = NULL;
 
     /* Normal packet processing for packets other than data packets */
     } else {
