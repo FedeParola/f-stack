@@ -1863,37 +1863,50 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
     struct rte_mbuf *head = NULL;
     void *p_bsdbuf = m;
     void *dt = NULL;
-    unsigned  ln = 0;
-    struct rte_mbuf *rte_mbuf_frm_bsd = NULL;
-    void *prepend_data = NULL;
+    unsigned ln = 0;
     char *rte_prepend_data = NULL;
     uint16_t prepend_len = 0;
-    uint16_t headroomavail = 0;
 
-    /* Get the next mbuf in the chain which contains the http data */
-    int ret = ff_next_mbuf(&p_bsdbuf, &dt, &ln);
-    if (ret == 0 && p_bsdbuf != NULL){
+    /* Check whether there is already an rte_mbuf containing the payload */
+    ff_next_mbuf(&p_bsdbuf, &dt, &ln);
+    if (p_bsdbuf) {
         prepend_len = ln;
-        rte_mbuf_frm_bsd = ff_rte_frm_extcl(p_bsdbuf);
-    }
-    if (rte_mbuf_frm_bsd != NULL){
-       headroomavail = rte_pktmbuf_headroom(rte_mbuf_frm_bsd);
+        head = ff_rte_frm_extcl(p_bsdbuf);
     }
 
-    /*If all conditions meet it is a resused rte_mbuf */
-    if ((p_bsdbuf != NULL) && (rte_mbuf_frm_bsd != NULL) && (headroomavail >= prepend_len) && (rte_mbuf_frm_bsd->pkt_len !=0) && (rte_mbuf_frm_bsd->data_len !=0)){
-        head = rte_mbuf_frm_bsd;
-        prepend_data = ff_mbuf_mtod(m);
-        rte_prepend_data = rte_pktmbuf_prepend(rte_mbuf_frm_bsd, prepend_len);
-        if (rte_prepend_data == NULL){
+    /* If all conditions are met, this is a reused rte_mbuf */
+    if (head && rte_pktmbuf_headroom(head) >= prepend_len) {
+        /* Copy TCP/IP headers in headroom of payload rte_mbuf */
+        rte_prepend_data = rte_pktmbuf_prepend(head, prepend_len);
+        if (rte_prepend_data == NULL)
             printf("rte_pktmbuf_prepend failed\n");
-        }
-        bcopy(prepend_data, rte_prepend_data, prepend_len);
-        /* Increase the ref-count of the rte_mbuf*/
-        rte_mbuf_refcnt_set(head, 2);
+        bcopy(ff_mbuf_mtod(m), rte_prepend_data, prepend_len);
 
-    /* normal packet processing for packets other than data packets */
-    }else {
+        /* DPDK decreases refcnt after tx, that would result in freeing the
+         * mbuf. Bump it so the TCP/IP stack can hold the mbuf for
+         * retransmissions and handle its freeing
+         */
+        rte_mbuf_refcnt_update(head, 1);
+
+        /* Append remaining segments to the chain */
+        head->pkt_len = total;
+        head->nb_segs = 1;
+        struct rte_mbuf *prev = head, *next;
+        ff_next_mbuf(&p_bsdbuf, &dt, &ln);
+        while (p_bsdbuf) {
+            next = ff_rte_frm_extcl(p_bsdbuf);
+            if (!next)
+                break;
+            /* Same as above */
+            rte_mbuf_refcnt_update(next, 1);
+            prev->next = next;
+            prev = next;
+            head->nb_segs++;
+            ff_next_mbuf(&p_bsdbuf, &dt, &ln);
+        }
+
+    /* Normal packet processing for packets other than data packets */
+    } else {
         head = rte_pktmbuf_alloc(mbuf_pool);
         if (head == NULL) {
             ff_mbuf_free(m);
