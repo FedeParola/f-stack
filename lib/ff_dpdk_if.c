@@ -1876,17 +1876,16 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
 
     /* If all conditions are met, this is a reused rte_mbuf */
     if (head && rte_pktmbuf_headroom(head) >= prepend_len) {
-        /* Reset rte_mbuf metadata in case it is retransmitted */
+        /* Set rte_mbuf metadata */
         ff_next_mbuf(&p_bsdbuf, &dt, &ln);
         head->ol_flags = 0;
         head->data_len = ln;
-        head->pkt_len = ln;
         head->data_off = dt - head->buf_addr;
 
         /* Copy TCP/IP headers in headroom of payload rte_mbuf */
         rte_prepend_data = rte_pktmbuf_prepend(head, prepend_len);
         if (rte_prepend_data == NULL)
-            printf("rte_pktmbuf_prepend failed\n");
+            fprintf(stderr, "rte_pktmbuf_prepend failed\n");
         bcopy(ff_mbuf_mtod(m), rte_prepend_data, prepend_len);
 
         /* DPDK decreases refcnt after tx, that would result in freeing the
@@ -1901,14 +1900,22 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
         struct rte_mbuf *prev = head, *next;
         while (p_bsdbuf) {
             next = ff_rte_frm_extcl(p_bsdbuf);
-            if (!next)
-                break;
+            if (!next) {
+                fprintf(stderr, "Detected mbuf chain with missing rte_mbufs\n");
+                return -1;
+            }
+            /* Set rte_mbuf metadata */
+            ff_next_mbuf(&p_bsdbuf, &dt, &ln);
+            next->ol_flags = 0;
+            next->nb_segs = 0;
+            next->pkt_len = 0;
+            next->data_len = ln;
+            next->data_off = dt - next->buf_addr;
             /* Same as above */
             rte_mbuf_refcnt_update(next, 1);
             prev->next = next;
             prev = next;
             head->nb_segs++;
-            ff_next_mbuf(&p_bsdbuf, &dt, &ln);
         }
         prev->next = NULL;
 
