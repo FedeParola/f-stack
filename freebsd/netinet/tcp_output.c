@@ -557,7 +557,7 @@ after_sack_rexmit:
 	ipoptlen += ipsec_optlen;
 #endif
 
-	if ((tp->t_flags & TF_TSO) && V_tcp_do_tso && len > tp->t_maxseg &&
+	if ((tp->t_flags & TF_TSO) && V_tcp_do_tso &&
 	    ((tp->t_flags & TF_SIGNATURE) == 0) &&
 	    tp->rcv_numsacks == 0 && sack_rxmit == 0 &&
 	    ipoptlen == 0 && !(flags & TH_SYN))
