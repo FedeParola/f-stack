@@ -1794,8 +1794,9 @@ out:
 	if (tls != NULL)
 		ktls_free(tls);
 #endif
-	if (top != NULL)
-		m_freem(top);
+	/* Don't free the mbuf, the app will handle it on failure */
+	// if (top != NULL)
+	// 	m_freem(top);
 	if (control != NULL)
 		m_freem(control);
 	return (error);
