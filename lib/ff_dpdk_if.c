@@ -117,6 +117,7 @@ static uint8_t *rsskey = default_rsskey_40bytes;
 struct lcore_conf lcore_conf;
 
 struct rte_mempool *pktmbuf_pool[NB_SOCKETS];
+struct rte_mempool *pktmbuf_ref_pool[NB_SOCKETS];
 
 static pcblddr_func_t pcblddr_fun;
 
@@ -302,6 +303,22 @@ init_lcore_conf(void)
     return 0;
 }
 
+static void ff_init_ref_pool(int nb_mbuf, int socketid)
+{
+    char s[64] = {0};
+
+    if (pktmbuf_ref_pool[socketid] != NULL) {
+            return;
+    }
+    snprintf(s, sizeof(s), "ff_ref_pool_%d", socketid);
+    if (rte_eal_process_type() == RTE_PROC_PRIMARY) {
+        pktmbuf_ref_pool[socketid] = rte_pktmbuf_pool_create(s, nb_mbuf,
+                MEMPOOL_CACHE_SIZE, 0, 0, socketid);
+    } else {
+        pktmbuf_ref_pool[socketid] = rte_mempool_lookup(s);
+    }
+}
+
 static int
 init_mem_pool(void *buffers, unsigned count, unsigned size)
 {
@@ -377,6 +394,13 @@ init_mem_pool(void *buffers, unsigned count, unsigned size)
         } else {
             printf("create mbuf pool on socket %d\n", socketid);
         }
+
+        nb_mbuf = RTE_ALIGN_CEIL (
+            nb_ports*nb_lcores*MAX_PKT_BURST    +
+            nb_ports*nb_tx_queue*TX_QUEUE_SIZE  +
+            nb_lcores*MEMPOOL_CACHE_SIZE,
+            (unsigned)4096);
+        ff_init_ref_pool(nb_mbuf, socketid);
 
 #ifdef FF_USE_PAGE_ARRAY
         nb_mbuf = RTE_ALIGN_CEIL (
@@ -1859,64 +1883,59 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
     return 0;
 #endif
     struct rte_mempool *mbuf_pool = pktmbuf_pool[lcore_conf.socket_id];
-    struct rte_mbuf *head = NULL;
-    void *p_bsdbuf = m;
-    void *dt = NULL;
-    unsigned ln = 0;
-    char *rte_prepend_data = NULL;
-    uint16_t prepend_len = 0;
+    struct rte_mempool *ref_pool = pktmbuf_ref_pool[lcore_conf.socket_id];
+    struct rte_mbuf *head = NULL, *first = NULL;
+    void *mbuf = m;
+    void *data = NULL;
+    unsigned len = 0;
 
     /* Check whether there is already an rte_mbuf containing the payload */
-    ff_next_mbuf(&p_bsdbuf, &dt, &ln);
-    if (p_bsdbuf) {
-        prepend_len = ln;
-        head = ff_rte_frm_extcl(p_bsdbuf);
-    }
-
-    /* If all conditions are met, this is a reused rte_mbuf */
-    if (head && rte_pktmbuf_headroom(head) >= prepend_len) {
-        /* Set rte_mbuf metadata */
-        ff_next_mbuf(&p_bsdbuf, &dt, &ln);
-        head->ol_flags = 0;
-        head->data_len = ln;
-        head->data_off = dt - head->buf_addr;
-
-        /* Copy TCP/IP headers in headroom of payload rte_mbuf */
-        rte_prepend_data = rte_pktmbuf_prepend(head, prepend_len);
-        if (rte_prepend_data == NULL)
-            fprintf(stderr, "rte_pktmbuf_prepend failed\n");
-        bcopy(ff_mbuf_mtod(m), rte_prepend_data, prepend_len);
-
-        /* DPDK decreases refcnt after tx, that would result in freeing the
-         * mbuf. Bump it so the TCP/IP stack can hold the mbuf for
-         * retransmissions and handle its freeing
-         */
-        rte_mbuf_refcnt_update(head, 1);
-
-        /* Append remaining segments to the chain */
+    ff_next_mbuf(&mbuf, &data, &len);
+    if (mbuf && ff_rte_frm_extcl(mbuf)) {
+        /* Allocate and configure head buffer and copy headers to it */
+        head = rte_pktmbuf_alloc(mbuf_pool);
+        if (head == NULL) {
+            fprintf(stderr, "Error allocating head rte_mbuf, handle it\n");
+            return -1;
+        }
+        head->data_len = len;
         head->pkt_len = total;
         head->nb_segs = 1;
-        struct rte_mbuf *prev = head, *next;
-        while (p_bsdbuf) {
-            next = ff_rte_frm_extcl(p_bsdbuf);
-            if (!next) {
-                fprintf(stderr, "Detected mbuf chain with missing rte_mbufs\n");
+        head->ol_flags = 0;
+        int ret = ff_mbuf_copydata(m, rte_pktmbuf_mtod(head, void *), 0, len);
+        if (ret < 0) {
+            fprintf(stderr, "Error copying headers to rte_mbuf\n");
+            return -1;
+        }
+
+        /* Append remaining segments to the chain */
+        struct rte_mbuf *tail = head;
+        while (mbuf) {
+            struct rte_mbuf *original = ff_rte_frm_extcl(mbuf);
+            if (!original) {
+                fprintf(stderr, "Error retrieving rte_mbuf connect to bsd "
+                        "mbuf\n");
                 return -1;
             }
-            /* Set rte_mbuf metadata */
-            ff_next_mbuf(&p_bsdbuf, &dt, &ln);
-            next->ol_flags = 0;
-            next->nb_segs = 0;
-            next->pkt_len = 0;
-            next->data_len = ln;
-            next->data_off = dt - next->buf_addr;
-            /* Same as above */
-            rte_mbuf_refcnt_update(next, 1);
-            prev->next = next;
-            prev = next;
+
+            ff_next_mbuf(&mbuf, &data, &len);
+
+            /* Use a (shallow) mbuf clone to TX data, so we can keep the
+             * original mbuf in the socket tx ringbuf
+             */
+            struct rte_mbuf *clone = rte_pktmbuf_clone(original, ref_pool);
+            if (!clone) {
+                fprintf(stderr, "Error getting shallow mbuf for TX\n");
+                return -1;
+            }
+            clone->data_len = len;
+            clone->data_off = data - clone->buf_addr;
+
+            tail->next = clone;
+            tail = clone;
             head->nb_segs++;
         }
-        prev->next = NULL;
+        tail->next = NULL;
 
     /* Normal packet processing for packets other than data packets */
     } else {
@@ -1948,7 +1967,7 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
             head->nb_segs++;
 
             prev = cur;
-            void *data = rte_pktmbuf_mtod(cur, void*);
+            data = rte_pktmbuf_mtod(cur, void*);
             // printf("in ff_dpdk_send data = %p\n", data);
             int len = total > RTE_MBUF_DEFAULT_DATAROOM ? RTE_MBUF_DEFAULT_DATAROOM : total;
             int ret = ff_mbuf_copydata(m, data, off, len);
@@ -1968,7 +1987,7 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
     struct ff_tx_offload offload = {0};
     ff_mbuf_tx_offload(m, &offload);
 
-    void *data = rte_pktmbuf_mtod(head, void*);
+    data = rte_pktmbuf_mtod(head, void*);
 
     if (offload.ip_csum) {
         /* ipv6 not supported yet */
