@@ -287,18 +287,21 @@ rte_pktmbuf_pool_create(const char *name, unsigned int n,
 			data_room_size, socket_id, NULL);
 }
 
-/* Helper to create a mbuf pool with pinned external data buffers. */
+/*
+ * Helper to create a mbuf pool with pinned external data buffers with given
+ * mempool ops name.
+ */
 struct rte_mempool *
-rte_pktmbuf_pool_create_extbuf(const char *name, unsigned int n,
+rte_pktmbuf_pool_create_extbuf_by_ops(const char *name, unsigned int n,
 	unsigned int cache_size, uint16_t priv_size,
 	uint16_t data_room_size, int socket_id,
 	const struct rte_pktmbuf_extmem *ext_mem,
-	unsigned int ext_num)
+	unsigned int ext_num, const char *ops_name)
 {
 	struct rte_mempool *mp;
 	struct rte_pktmbuf_pool_private mbp_priv;
 	struct rte_pktmbuf_extmem_init_ctx init_ctx;
-	const char *mp_ops_name;
+	const char *mp_ops_name = ops_name;
 	unsigned int elt_size;
 	unsigned int i, n_elts = 0;
 	int ret;
@@ -346,7 +349,8 @@ rte_pktmbuf_pool_create_extbuf(const char *name, unsigned int n,
 	if (mp == NULL)
 		return NULL;
 
-	mp_ops_name = rte_mbuf_best_mempool_ops();
+	if (mp_ops_name == NULL)
+		mp_ops_name = rte_mbuf_best_mempool_ops();
 	ret = rte_mempool_set_ops_byname(mp, mp_ops_name, NULL);
 	if (ret != 0) {
 		RTE_LOG(ERR, MBUF, "error setting mempool handler\n");
@@ -373,6 +377,20 @@ rte_pktmbuf_pool_create_extbuf(const char *name, unsigned int n,
 
 	return mp;
 }
+
+/* Helper to create a mbuf pool with pinned external data buffers. */
+struct rte_mempool *
+rte_pktmbuf_pool_create_extbuf(const char *name, unsigned int n,
+	unsigned int cache_size, uint16_t priv_size,
+	uint16_t data_room_size, int socket_id,
+	const struct rte_pktmbuf_extmem *ext_mem,
+	unsigned int ext_num)
+{
+	return rte_pktmbuf_pool_create_extbuf_by_ops(name, n, cache_size,
+			priv_size, data_room_size, socket_id, ext_mem, ext_num,
+			NULL);
+}
+
 
 /* do some sanity checks on a mbuf: panic if it fails */
 void

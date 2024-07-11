@@ -357,10 +357,9 @@ init_mem_pool(void *buffers, unsigned count, unsigned size)
             printf("Wanted to use %u mbufs, instead will use %u\n", nb_mbuf,
                    count);
 
-            pktmbuf_pool[socketid] =
-                rte_pktmbuf_pool_create_extbuf(s, count, MEMPOOL_CACHE_SIZE, 0,
-                                               RTE_MBUF_DEFAULT_BUF_SIZE,
-                                               socketid, &ext_mem, 1);
+            pktmbuf_pool[socketid] = rte_pktmbuf_pool_create_extbuf_by_ops(
+                    s, count, MEMPOOL_CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE,
+                    socketid, &ext_mem, 1, "unimsg");
 
             if (pktmbuf_pool[socketid]->nb_mem_chunks > 1) {
                 rte_exit(EXIT_FAILURE, "Unimsg mempool must have 1 memory chunk"
@@ -1079,12 +1078,12 @@ init_flow(uint16_t port_id, uint16_t tcp_port) {
  * using case of FDIR is (but not limited to), using multiple processes to
  * listen on different ports.
  *
- * This function can be called either in FSTACK or in end-application. 
+ * This function can be called either in FSTACK or in end-application.
  *
  * Example:
  *  Given 2 fstack instances A and B. Instance A listens on port 80, and
  *  instance B listens on port 81. We want to process the traffic to port 80
- *  on rx queue 0, and the traffic to port 81 on rx queue 1. 
+ *  on rx queue 0, and the traffic to port 81 on rx queue 1.
  *  // port 80 rx queue 0
  *  ret = fdir_add_tcp_flow(port_id, 0, FF_FLOW_INGRESS, 0, 80);
  *  // port 81 rx queue 1
@@ -1093,27 +1092,27 @@ init_flow(uint16_t port_id, uint16_t tcp_port) {
 #define FF_FLOW_EGRESS		1
 #define FF_FLOW_INGRESS		2
 /**
- * Create a flow rule that moves packets with matching src and dest tcp port 
- * to the target queue. 
- * 
+ * Create a flow rule that moves packets with matching src and dest tcp port
+ * to the target queue.
+ *
  * This function uses general flow rules and doesn't rely on the flow_isolation
  * that not all the FDIR capable NIC support.
  *
  * @param port_id
  *   The selected port.
- * @param queue 
+ * @param queue
  *   The target queue.
- * @param dir 
- *   The direction of the traffic. 
- *   1 for egress, 2 for ingress and sum(1+2) for both. 
- * @param tcp_sport 
+ * @param dir
+ *   The direction of the traffic.
+ *   1 for egress, 2 for ingress and sum(1+2) for both.
+ * @param tcp_sport
  *   The src tcp port to match.
  * @param tcp_dport
  *   The dest tcp port to match.
  *
  */
 static int
-fdir_add_tcp_flow(uint16_t port_id, uint16_t queue, uint16_t dir, 
+fdir_add_tcp_flow(uint16_t port_id, uint16_t queue, uint16_t dir,
 		uint16_t tcp_sport, uint16_t tcp_dport)
 {
     struct rte_flow_attr attr;
@@ -1134,7 +1133,7 @@ fdir_add_tcp_flow(uint16_t port_id, uint16_t queue, uint16_t dir,
      */
     memset(&attr, 0, sizeof(struct rte_flow_attr));
     attr.ingress = ((dir & FF_FLOW_INGRESS) > 0);
-    attr.egress = ((dir & FF_FLOW_EGRESS) > 0); 
+    attr.egress = ((dir & FF_FLOW_EGRESS) > 0);
 
     /*
      * create the action sequence.
@@ -1153,7 +1152,7 @@ fdir_add_tcp_flow(uint16_t port_id, uint16_t queue, uint16_t dir,
     memset(&tcp_spec, 0, sizeof(struct rte_flow_item_tcp));
     memset(&tcp_mask, 0, sizeof(struct rte_flow_item_tcp));
     tcp_spec.hdr.src_port = htons(tcp_sport);
-    tcp_mask.hdr.src_port = (tcp_sport == 0 ? 0: 0xffff); 
+    tcp_mask.hdr.src_port = (tcp_sport == 0 ? 0: 0xffff);
     tcp_spec.hdr.dst_port = htons(tcp_dport);
     tcp_mask.hdr.dst_port = (tcp_dport == 0 ? 0: 0xffff);
     flow_pattern[2].type = RTE_FLOW_ITEM_TYPE_TCP;
@@ -1167,7 +1166,7 @@ fdir_add_tcp_flow(uint16_t port_id, uint16_t queue, uint16_t dir,
 	return (1);
 
     flow = rte_flow_create(port_id, &attr, flow_pattern, flow_action, &rfe);
-    if (!flow) 
+    if (!flow)
 	return port_flow_complain(&rfe);
 
     return (0);
@@ -2302,4 +2301,3 @@ ff_get_tsc_ns()
     uint64_t hz = rte_get_tsc_hz();
     return ((double)cur_tsc/(double)hz) * NS_PER_S;
 }
-
