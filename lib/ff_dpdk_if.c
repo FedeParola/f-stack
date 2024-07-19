@@ -1901,7 +1901,6 @@ ff_dpdk_if_send(struct ff_dpdk_if_context *ctx, void *m,
         head->data_len = len;
         head->pkt_len = total;
         head->nb_segs = 1;
-        head->ol_flags = 0;
         int ret = ff_mbuf_copydata(m, rte_pktmbuf_mtod(head, void *), 0, len);
         if (ret < 0) {
             fprintf(stderr, "Error copying headers to rte_mbuf\n");
